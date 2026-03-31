@@ -60,9 +60,12 @@ src/
 ### Prerequisites
 
 - Node.js 18+ and npm
+- React Native CLI (`npm install -g react-native-cli`)
 - React Native development environment set up ([guide](https://reactnative.dev/docs/environment-setup))
-- For iOS: Xcode 14+ and CocoaPods
-- For Android: Android Studio with SDK
+- For iOS: Xcode 14+ and CocoaPods (macOS only)
+- For Android: Android Studio with SDK, JDK 11+
+
+**Note:** This repository contains the JavaScript/TypeScript source code only. The native iOS and Android project folders need to be initialized separately (see step 3 below).
 
 ### Setup Steps
 
@@ -77,7 +80,18 @@ src/
    npm install
    ```
 
-3. **Configure environment variables**
+3. **Initialize React Native project structure**
+   ```bash
+   # This creates the ios/ and android/ folders with native code
+   npx react-native init TempProject --skip-install
+
+   # Copy the native folders to your project
+   cp -r TempProject/ios ./
+   cp -r TempProject/android ./
+   rm -rf TempProject
+   ```
+
+4. **Configure environment variables**
    ```bash
    # Copy the example environment file
    cp .env.example .env
@@ -86,22 +100,27 @@ src/
    # Required: API_BASE_URL and API_KEY
    ```
 
-4. **Android-specific setup**
+5. **Android-specific setup**
    ```bash
-   # Copy the local.properties example
+   # Copy the local.properties example if it exists
+   # Otherwise, create android/local.properties manually
    cp android/local.properties.example android/local.properties
 
    # Edit android/local.properties and update sdk.dir to your Android SDK path
    ```
 
-5. **iOS setup**
+6. **iOS setup** (macOS only)
    ```bash
    cd ios && pod install && cd ..
    ```
 
-6. **Run the app**
+7. **Run the app**
    ```bash
-   # iOS
+   # Start Metro bundler
+   npm start
+
+   # In another terminal:
+   # iOS (macOS only)
    npm run ios
 
    # Android

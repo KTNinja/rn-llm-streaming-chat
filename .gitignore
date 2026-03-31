@@ -4,28 +4,35 @@
 .AppleDouble
 .LSOverride
 
-# Xcode
-#
-build/
-*.pbxuser
-!default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata
-*.xccheckout
-*.moved-aside
-DerivedData
-*.hmap
-*.ipa
-*.xcuserstate
-ios/.xcode.env.local
+# iOS / Xcode
+# Entire ios folder (users will generate this)
+ios/
 
-# Android/IntelliJ
-#
+# If you decide to commit ios/ folder later, uncomment these:
+# build/
+# *.pbxuser
+# !default.pbxuser
+# *.mode1v3
+# !default.mode1v3
+# *.mode2v3
+# !default.mode2v3
+# *.perspectivev3
+# !default.perspectivev3
+# xcuserdata
+# *.xccheckout
+# *.moved-aside
+# DerivedData
+# *.hmap
+# *.ipa
+# *.xcuserstate
+# ios/.xcode.env.local
+
+# Android
+# Entire android folder except example files (users will generate this)
+android/*
+!android/local.properties.example
+
+# Android build artifacts (if you decide to commit android/ folder later)
 build/
 .idea
 .gradle
