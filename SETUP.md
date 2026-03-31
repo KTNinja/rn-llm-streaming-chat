@@ -58,20 +58,34 @@ npm install
 **Option A: Using React Native CLI (Recommended)**
 
 ```bash
+# IMPORTANT: Create the project OUTSIDE your current directory to avoid git conflicts
+# Navigate to a temporary location
+cd /tmp
+
 # Create a temporary React Native project to get the native folders
-npx react-native init TempRNProject --skip-install --version 0.73.0
+# Note: Use @react-native-community/cli as 'react-native init' is deprecated
+npx @react-native-community/cli init TempRNProject --skip-install
 
-# Copy the native folders
-cp -r TempRNProject/ios ./
-cp -r TempRNProject/android ./
+# Copy the native folders to your project directory
+# Replace /path/to/rn-llm-streaming-chat with your actual project path
+cp -r /tmp/TempRNProject/ios /path/to/rn-llm-streaming-chat/
+cp -r /tmp/TempRNProject/android /path/to/rn-llm-streaming-chat/
 
-# Update package name in Android (optional but recommended)
+# Clean up temporary project
+rm -rf /tmp/TempRNProject
+
+# Return to your project
+cd /path/to/rn-llm-streaming-chat
+
+# (Optional) Update package name in Android
 # Edit android/app/src/main/AndroidManifest.xml
 # Change package="com.temprnproject" to package="com.smoothstreamingllmchat"
-
-# Clean up
-rm -rf TempRNProject
 ```
+
+**Why create outside the directory?**
+- Creating React Native projects inside an existing git repository causes the template copying to fail
+- The new CLI initializes a git repo, which conflicts with your existing one
+- Creating in `/tmp` avoids these conflicts
 
 **Option B: Manual Setup**
 

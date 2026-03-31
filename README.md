@@ -82,14 +82,20 @@ src/
 
 3. **Initialize React Native project structure**
    ```bash
-   # This creates the ios/ and android/ folders with native code
-   npx react-native init TempProject --skip-install
+   # Create a temporary project outside this directory (to avoid git conflicts)
+   cd /tmp
+   npx @react-native-community/cli init TempRNProject --skip-install
 
    # Copy the native folders to your project
-   cp -r TempProject/ios ./
-   cp -r TempProject/android ./
-   rm -rf TempProject
+   cp -r /tmp/TempRNProject/ios /path/to/rn-llm-streaming-chat/
+   cp -r /tmp/TempRNProject/android /path/to/rn-llm-streaming-chat/
+
+   # Clean up and return to project
+   rm -rf /tmp/TempRNProject
+   cd /path/to/rn-llm-streaming-chat
    ```
+
+   **Note:** Replace `/path/to/rn-llm-streaming-chat` with your actual project path.
 
 4. **Configure environment variables**
    ```bash
