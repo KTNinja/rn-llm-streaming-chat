@@ -41,7 +41,7 @@ export function createMockStream(text: string, delayMs: number = 50): ReadableSt
  * Use this for testing without a real API
  */
 export async function mockStreamingFetch(
-  url: string,
+  _url: string,
   options?: RequestInit
 ): Promise<Response> {
   // Simulate network delay
@@ -63,13 +63,13 @@ export async function mockStreamingFetch(
       prompt = lastMessage.toLowerCase();
 
       // Find matching mock response
-      for (const [key, value] of Object.entries(mockResponses)) {
+      for (const key of Object.keys(mockResponses)) {
         if (prompt.includes(key)) {
           prompt = key;
           break;
         }
       }
-    } catch (e) {
+    } catch (_error) {
       // Use default
     }
   }
@@ -77,7 +77,7 @@ export async function mockStreamingFetch(
   const responseText = mockResponses[prompt] || mockResponses['default'];
 
   // Create mock Response with ReadableStream
-  return new Response(createMockStream(responseText), {
+  return new Response(createMockStream(responseText) as unknown as never, {
     status: 200,
     headers: {
       'Content-Type': 'text/event-stream',

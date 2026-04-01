@@ -19,6 +19,7 @@ export function StreamingMessage({
   isStreaming,
 }: StreamingMessageProps) {
   const [showCursor, setShowCursor] = useState(true);
+  const hasText = text.trim().length > 0;
 
   useEffect(() => {
     if (!isStreaming) {
@@ -43,8 +44,8 @@ export function StreamingMessage({
     <View style={styles.container}>
       <View style={styles.bubble}>
         <Text style={styles.text}>
-          {text}
-          {isStreaming && showCursor && (
+          {hasText ? text : 'Thinking...'}
+          {isStreaming && hasText && showCursor && (
             <Text style={styles.cursor}>▍</Text>
           )}
         </Text>
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    maxWidth: '80%',
+    width: '80%',
     alignSelf: 'flex-start',
   },
   text: {

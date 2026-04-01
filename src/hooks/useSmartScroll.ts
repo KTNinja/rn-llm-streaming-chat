@@ -48,7 +48,7 @@ export function useSmartScroll(isStreaming: boolean): UseSmartScrollReturn {
    * Auto-scroll only if user hasn't manually scrolled up
    */
   const handleContentSizeChange = useCallback(
-    (width: number, height: number) => {
+    (_width: number, _height: number) => {
       // Only auto-scroll if:
       // 1. User hasn't scrolled up (is at bottom)
       // 2. Stream is active (new content is being added)

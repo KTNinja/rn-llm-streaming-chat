@@ -6,7 +6,7 @@ export interface StreamingConfig {
   url: string;
   method?: 'GET' | 'POST';
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
 }
 
 export interface UseStreamingLLMReturn {
@@ -15,6 +15,7 @@ export interface UseStreamingLLMReturn {
   error: string | null;
   startStream: (config: StreamingConfig) => Promise<void>;
   stopStream: () => void;
+  clearStreamedText: () => void;
 }
 
 /**
@@ -35,7 +36,7 @@ export function useStreamingLLM(): UseStreamingLLMReturn {
   const streamIdRef = useRef(0);
   const isMountedRef = useRef(true);
 
-  const { displayText, appendChunk, reset, finalize } = useSmoothUpdates();
+  const { displayText, appendChunk, reset, finalize, waitForIdle } = useSmoothUpdates();
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -74,72 +75,98 @@ export function useStreamingLLM(): UseStreamingLLMReturn {
       abortControllerRef.current = abortController;
 
       try {
-        // Make fetch request with ReadableStream
-        const response = await fetch(config.url, {
-          method: config.method || 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...config.headers,
-          },
-          body: config.body ? JSON.stringify(config.body) : undefined,
-          signal: abortController.signal,
+        // Use XMLHttpRequest for streaming support in React Native
+        console.log('Making XHR request to:', config.url);
+
+        const xhr = new XMLHttpRequest();
+        const sseParser = new SSEParser();
+        let lastResponseLength = 0;
+
+        // Set up promise to handle async XHR
+        const xhrPromise = new Promise<void>((resolve, reject) => {
+          xhr.open(config.method || 'POST', config.url, true);
+
+          // Set headers
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          if (config.headers) {
+            Object.entries(config.headers).forEach(([key, value]) => {
+              xhr.setRequestHeader(key, value);
+            });
+          }
+
+          // Handle progress events for streaming
+          xhr.onprogress = () => {
+            // Check if stream was cancelled
+            if (currentStreamId !== streamIdRef.current) {
+              xhr.abort();
+              resolve();
+              return;
+            }
+
+            const responseText = xhr.responseText;
+            const newChunk = responseText.substring(lastResponseLength);
+            lastResponseLength = responseText.length;
+
+            if (newChunk) {
+              // Parse SSE format
+              const messages = sseParser.parseChunk(newChunk);
+
+              for (const message of messages) {
+                // Check again if stream was cancelled
+                if (currentStreamId !== streamIdRef.current) {
+                  xhr.abort();
+                  resolve();
+                  return;
+                }
+
+                // Extract token from SSE message
+                const token = extractLLMToken(message);
+
+                if (token === null) {
+                  // [DONE] signal or end of stream
+                  continue;
+                }
+
+                // Append token with smooth updates
+                appendChunk(token);
+              }
+            }
+          };
+
+          xhr.onload = () => {
+            console.log('XHR onload - status:', xhr.status);
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              console.log('XHR error response:', xhr.responseText);
+              reject(new Error(`HTTP error! status: ${xhr.status}, body: ${xhr.responseText}`));
+            }
+          };
+
+          xhr.onerror = () => {
+            console.log('XHR onerror');
+            reject(new Error('Network request failed'));
+          };
+
+          xhr.ontimeout = () => {
+            console.log('XHR timeout');
+            reject(new Error('Request timeout'));
+          };
+
+          // Handle abort from AbortController
+          abortController.signal.addEventListener('abort', () => {
+            xhr.abort();
+            resolve();
+          });
+
+          // Send the request
+          xhr.send(config.body ? JSON.stringify(config.body) : undefined);
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        await xhrPromise;
 
-        // Check if response body is available
-        if (!response.body) {
-          throw new Error('Response body is null');
-        }
-
-        // Get ReadableStream reader
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        const sseParser = new SSEParser();
-
-        // Read chunks in a loop
-        while (true) {
-          // Check if this stream was cancelled
-          if (currentStreamId !== streamIdRef.current) {
-            reader.cancel();
-            break;
-          }
-
-          const { done, value } = await reader.read();
-
-          if (done) {
-            break;
-          }
-
-          // Decode Uint8Array to text
-          const chunk = decoder.decode(value, { stream: true });
-
-          // Parse SSE format
-          const messages = sseParser.parseChunk(chunk);
-
-          for (const message of messages) {
-            // Check again if stream was cancelled
-            if (currentStreamId !== streamIdRef.current) {
-              break;
-            }
-
-            // Extract token from SSE message
-            const token = extractLLMToken(message);
-
-            if (token === null) {
-              // [DONE] signal or end of stream
-              continue;
-            }
-
-            // Append token with smooth updates
-            appendChunk(token);
-          }
-        }
-
-        // Finalize to ensure all buffered text is displayed
-        finalize();
+        // Let the paced reveal finish naturally before marking the stream complete
+        await waitForIdle();
 
         // Only update state if this stream is still the current one
         if (
@@ -149,24 +176,24 @@ export function useStreamingLLM(): UseStreamingLLMReturn {
           setIsStreaming(false);
           abortControllerRef.current = null;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Only update state if component is mounted and stream wasn't cancelled
         if (
           isMountedRef.current &&
           currentStreamId === streamIdRef.current
         ) {
-          if (err.name === 'AbortError') {
+          if (err instanceof Error && err.name === 'AbortError') {
             console.log('Stream was cancelled');
           } else {
             console.error('Streaming error:', err);
-            setError(err.message || 'Streaming failed');
+            setError(err instanceof Error ? err.message : 'Streaming failed');
           }
           setIsStreaming(false);
           abortControllerRef.current = null;
         }
       }
     },
-    [isStreaming, reset, appendChunk, finalize]
+    [isStreaming, reset, appendChunk, waitForIdle]
   );
 
   /**
@@ -191,11 +218,16 @@ export function useStreamingLLM(): UseStreamingLLMReturn {
     }
   }, [finalize]);
 
+  const clearStreamedText = useCallback(() => {
+    reset();
+  }, [reset]);
+
   return {
     streamedText: displayText,
     isStreaming,
     error,
     startStream,
     stopStream,
+    clearStreamedText,
   };
 }

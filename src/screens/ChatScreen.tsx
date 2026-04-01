@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, StyleSheet, SafeAreaView, StatusBar, Text, Platform } from 'react-native';
 import { useStreamingLLM } from '../hooks/useStreamingLLM';
 import { useSmartScroll } from '../hooks/useSmartScroll';
 import { MessageList, Message } from '../components/MessageList';
 import { ChatInput } from '../components/ChatInput';
+import { API_BASE_URL, API_KEY, MODEL_NAME } from '@env';
 
 /**
  * Main Chat Screen Component
@@ -19,11 +20,22 @@ import { ChatInput } from '../components/ChatInput';
 export function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const topInset = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0;
 
-  const { streamedText, isStreaming, error, startStream, stopStream } =
+  const {
+    streamedText,
+    isStreaming,
+    error,
+    startStream,
+    stopStream,
+    clearStreamedText,
+  } =
     useStreamingLLM();
 
   const smartScroll = useSmartScroll(isStreaming);
+
+  // Track the previous isStreaming value to detect transitions
+  const prevIsStreamingRef = React.useRef(isStreaming);
 
   /**
    * Handle sending a message
@@ -34,6 +46,13 @@ export function ChatScreen() {
     if (!userMessage || isStreaming) {
       return;
     }
+
+    // Debug: Log environment variables
+    console.log('Environment variables:', {
+      API_BASE_URL,
+      API_KEY: API_KEY ? `${API_KEY.substring(0, 10)}...` : 'undefined',
+      MODEL_NAME,
+    });
 
     // Add user message to history
     const userMessageObj: Message = {
@@ -48,18 +67,19 @@ export function ChatScreen() {
     // Reset scroll state to enable auto-scroll for new response
     smartScroll.resetUserScroll();
 
+    const apiUrl = `${API_BASE_URL}/chat/completions`;
+    console.log('Making request to:', apiUrl);
+
     // Start streaming the LLM response
-    // Note: Replace with your actual API endpoint and configuration
     await startStream({
-      url: 'https://api.example.com/v1/chat/completions',
+      url: apiUrl,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // Add your API key here
-        // 'Authorization': 'Bearer YOUR_API_KEY',
+        'Authorization': `Bearer ${API_KEY}`,
       },
       body: {
-        model: 'gpt-4',
+        model: MODEL_NAME || 'gpt-4',
         messages: [
           ...messages.map((m) => ({
             role: m.role,
@@ -74,12 +94,33 @@ export function ChatScreen() {
 
   /**
    * Handle stopping the stream
+   * Note: The useEffect will handle adding the message when streaming stops
    */
   const handleStop = useCallback(() => {
     stopStream();
+    // Don't add message here - let the useEffect handle it
+  }, [stopStream]);
 
-    // Add the current streamed text as a completed message
-    if (streamedText) {
+  /**
+   * Handle completion of streaming (called internally by hook)
+   * This adds the final assistant message to the history
+   * IMPORTANT: Only triggers on transition from streaming=true to streaming=false
+   */
+  React.useEffect(() => {
+    const prevIsStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+
+    console.log('useEffect triggered:', {
+      prevIsStreaming,
+      isStreaming,
+      streamedText: streamedText?.substring(0, 50),
+    });
+
+    // Only add message when we transition from streaming to not streaming
+    // AND we have actual content (not empty string)
+    if (prevIsStreaming && !isStreaming && streamedText && streamedText.trim().length > 0) {
+      console.log('Stream completed - adding message to history');
+
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         text: streamedText,
@@ -87,36 +128,23 @@ export function ChatScreen() {
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      clearStreamedText();
     }
-  }, [stopStream, streamedText]);
-
-  /**
-   * Handle completion of streaming (called internally by hook)
-   * This adds the final assistant message to the history
-   */
-  React.useEffect(() => {
-    // When streaming stops and we have text, add it as a message
-    if (!isStreaming && streamedText && messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-
-      // Only add if it's not already the last message
-      if (lastMessage.role !== 'assistant' || lastMessage.text !== streamedText) {
-        const assistantMessage: Message = {
-          id: `assistant-${Date.now()}`,
-          text: streamedText,
-          role: 'assistant',
-        };
-
-        setMessages((prev) => [...prev, assistantMessage]);
-      }
-    }
-  }, [isStreaming, streamedText, messages]);
+  }, [isStreaming, streamedText, clearStreamedText]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      <View style={styles.chatContainer}>
+      <View
+        style={[
+          styles.chatContainer,
+          {
+            paddingTop: topInset + 8,
+            paddingBottom: 8,
+          },
+        ]}
+      >
         <MessageList
           messages={messages}
           streamingText={streamedText}
@@ -135,7 +163,14 @@ export function ChatScreen() {
 
       {/* Error handling - you can customize this */}
       {error && (
-        <View style={styles.errorContainer}>
+        <View
+          style={[
+            styles.errorContainer,
+            {
+              top: topInset + 16,
+            },
+          ]}
+        >
           <Text style={styles.errorText}>Error: {error}</Text>
         </View>
       )}
@@ -153,7 +188,6 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     position: 'absolute',
-    top: 50,
     left: 20,
     right: 20,
     backgroundColor: '#FF3B30',

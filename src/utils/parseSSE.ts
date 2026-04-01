@@ -127,7 +127,7 @@ export function extractLLMToken(sseMessage: SSEMessage): string | null {
     }
 
     return null;
-  } catch (error) {
+  } catch (_error) {
     // Not valid JSON, return as-is if it's plain text
     return data || null;
   }

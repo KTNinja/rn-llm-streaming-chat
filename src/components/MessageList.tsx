@@ -48,7 +48,7 @@ export function MessageList({
       ))}
 
       {/* Show streaming message at the bottom */}
-      {(isStreaming || streamingText) && (
+      {isStreaming && (
         <StreamingMessage text={streamingText} isStreaming={isStreaming} />
       )}
     </ScrollView>
@@ -116,6 +116,7 @@ const styles = StyleSheet.create({
   assistantBubble: {
     backgroundColor: '#F0F0F0',
     alignSelf: 'flex-start',
+    width: '80%',
   },
   messageText: {
     fontSize: 16,
